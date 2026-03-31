@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="CFG Membership Checker — Verify string membership in Context-Free Grammars using the CYK Algorithm. Theory of Computation simulation tool.">
+    <title>CFG Membership Checker — CYK Algorithm</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <!-- ===== BACKGROUND EFFECTS ===== -->
+    <div class="bg-effects">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="grid-overlay"></div>
+    </div>
+
+    <!-- ===== HEADER ===== -->
+    <header>
+        <div class="header-content">
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                        <rect x="2" y="2" width="32" height="32" rx="8" stroke="url(#lg)" stroke-width="2.5"/>
+                        <circle cx="18" cy="18" r="4" fill="url(#lg)" opacity="0.8"/>
+                        <path d="M11 18h14M18 11v14" stroke="url(#lg)" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+                        <defs><linearGradient id="lg" x1="0" y1="0" x2="36" y2="36"><stop stop-color="#7c6aff"/><stop offset="1" stop-color="#00e5a0"/></linearGradient></defs>
+                    </svg>
+                </div>
+                <div>
+                    <h1>CFG Membership Checker</h1>
+                    <p class="subtitle">Theory of Computation &bull; CYK Algorithm &bull; Chomsky Normal Form</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== MAIN LAYOUT ===== -->
+    <main>
+        <!-- ===== LEFT PANEL: INPUT ===== -->
+        <section class="panel panel-input">
+
+            <!-- Sample Grammar Cards -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">📋</span>
+                    <h2>Sample Grammars</h2>
+                </div>
+                <div class="card-body">
+                    <div class="sample-grid">
+                        {% for key, (grammar, test_str) in sample_grammars.items() %}
+                        <a href="/?sample={{ key }}"
+                           class="sample-chip {{ 'active' if selected_sample == key else '' }}">
+                            {{ key }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grammar + String Form -->
+            <form method="POST" action="/" class="input-form">
+                <input type="hidden" name="selected_sample" value="{{ selected_sample }}">
+
+                <!-- Grammar Input -->
+                <div class="card card-grow">
+                    <div class="card-header">
+                        <span class="card-icon">📝</span>
+                        <h2>Grammar Productions</h2>
+                    </div>
+                    <div class="card-body">
+                        <p class="hint">One production per line &mdash; e.g. <code>S -&gt; aSb | ab</code></p>
+                        <textarea name="grammar" placeholder="S -> aSb | ab" spellcheck="false" required>{{ grammar_text }}</textarea>
+                    </div>
+                </div>
+
+                <!-- String Input -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-icon">🔤</span>
+                        <h2>Input String</h2>
+                    </div>
+                    <div class="card-body">
+                        <p class="hint">Enter the string to check (leave empty for ε)</p>
+                        <input type="text" name="string" value="{{ input_string }}" placeholder="e.g. aabb" spellcheck="false" autocomplete="off">
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary">
+                        <span class="btn-icon">▶</span>
+                        <span>Check Membership</span>
+                    </button>
+                    <a href="/" class="btn btn-secondary">
+                        <span class="btn-icon">✕</span>
+                        <span>Clear</span>
+                    </a>
+                </div>
+            </form>
+
+            <!-- Error Message -->
+            {% if error %}
+            <div class="result-banner rejected">
+                <div class="result-icon">⚠️</div>
+                <div class="result-text">
+                    <div class="result-label">Error</div>
+                    <div class="result-detail">{{ error }}</div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Result Banner -->
+            {% if result %}
+            <div class="result-banner {{ 'accepted' if result.accepted else 'rejected' }}">
+                <div class="result-icon">{{ '✅' if result.accepted else '❌' }}</div>
+                <div class="result-text">
+                    <div class="result-label">
+                        {{ 'ACCEPTED' if result.accepted else 'REJECTED' }}
+                    </div>
+                    <div class="result-detail">
+                        "{{ result.string }}"
+                        {{ '∈' if result.accepted else '∉' }}
+                        L(G)
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </section>
+
+        <!-- ===== RIGHT PANEL: OUTPUT ===== -->
+        <section class="panel panel-output">
+            {% if result %}
+            <!-- CSS-Only Tabs (no JavaScript) -->
+            <input type="radio" name="tabs" id="tab-cnf" class="tab-radio" checked>
+            <input type="radio" name="tabs" id="tab-table" class="tab-radio">
+            <input type="radio" name="tabs" id="tab-steps" class="tab-radio">
+
+            <div class="tabs">
+                <label for="tab-cnf" class="tab">🔄 CNF Conversion</label>
+                <label for="tab-table" class="tab">📊 CYK Table</label>
+                <label for="tab-steps" class="tab">📜 Step-by-Step</label>
+            </div>
+
+            <!-- Tab 1: CNF Conversion -->
+            <div class="tab-content tab-cnf-content">
+                <div class="output-body">
+                    {% if cnf_steps %}
+                    {% for step_name, description, snapshot in cnf_steps %}
+                    <div class="cnf-step">
+                        <div class="cnf-step-header">
+                            <div class="cnf-step-num">{{ loop.index }}</div>
+                            <div class="cnf-step-title">{{ step_name }}</div>
+                        </div>
+                        <div class="cnf-step-body">
+                            <p class="cnf-step-desc">{{ description }}</p>
+                            <div class="cnf-grammar">
+                                {% for line in snapshot.split('\n') %}
+                                {% if line.strip() %}
+                                <div class="production">
+                                    {% set parts = line.split('→') %}
+                                    <span class="nt">{{ parts[0].strip() }}</span>
+                                    <span class="arrow">→</span>
+                                    <span class="prod-body">{{ parts[1].strip() if parts|length > 1 else '' }}</span>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Tab 2: CYK Table -->
+            <div class="tab-content tab-table-content">
+                <div class="output-body">
+                    {% if cyk_table %}
+                    {% if cyk_table.n == 0 %}
+                    <div class="cyk-info">
+                        Empty string (ε) — no CYK table needed.
+                    </div>
+                    {% else %}
+                    <div class="cyk-info">
+                        <strong>String:</strong> "{{ input_string }}" &nbsp;&bull;&nbsp;
+                        <strong>Length:</strong> {{ cyk_table.n }} &nbsp;&bull;&nbsp;
+                        <strong>Start Symbol:</strong> {{ cyk_table.start_symbol }}
+                    </div>
+
+                    <div class="cyk-container">
+                        <table class="cyk-table">
+                            <thead>
+                                <tr>
+                                    <th class="corner">Length</th>
+                                    {% for ch in cyk_table.chars %}
+                                    <th>{{ ch }}<br><span class="col-idx">[{{ loop.index0 }}]</span></th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in cyk_table.rows %}
+                                <tr>
+                                    <th class="row-header">{{ row.length }}</th>
+                                    {% for cell in row.cells %}
+                                    <td class="{{ cell.css }}">{{ cell.content }}</td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Legend -->
+                    <div class="cyk-legend">
+                        <span class="legend-dot dot-filled"></span> Non-terminals found &nbsp;&nbsp;
+                        <span class="legend-dot dot-empty"></span> Empty cell &nbsp;&nbsp;
+                        <span class="legend-dot dot-accept"></span> Accepted &nbsp;&nbsp;
+                        <span class="legend-dot dot-reject"></span> Rejected
+                    </div>
+                    {% endif %}
+
+                    <!-- Final result -->
+                    <div class="cyk-final {{ 'cyk-accept' if cyk_table.accepted else 'cyk-reject' }}">
+                        <div class="cyk-final-label">
+                            {{ '✓ ACCEPTED' if cyk_table.accepted else '✗ REJECTED' }}
+                        </div>
+                        <div class="cyk-final-detail">
+                            Cell [0][{{ cyk_table.n - 1 }}] = { {{ cyk_table.final_cell }} }
+                            &nbsp;—&nbsp;
+                            Start symbol "{{ cyk_table.start_symbol }}"
+                            {{ '∈' if cyk_table.accepted else '∉' }}
+                            top cell
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Tab 3: Step-by-Step -->
+            <div class="tab-content tab-steps-content">
+                <div class="output-body">
+                    {% if cyk_steps %}
+                    {% set step_counter = [0] %}
+                    {% for step in cyk_steps %}
+
+                        {% if step.phase == 'header' %}
+                        <div class="step-header">{{ step.description }}</div>
+
+                        {% elif step.phase == 'init' %}
+                        {% if step_counter.append(step_counter.pop() + 1) %}{% endif %}
+                        <div class="step-item step-init">
+                            <span class="step-num">Step {{ step_counter[0] }}:</span>
+                            Cell [{{ step.i }}][{{ step.j }}] — Character '{{ step.char }}'<br>
+                            Non-terminals: <span class="step-nt">
+                                {% if step.cell_value %}
+                                    { {{ step.cell_value | sort | join(', ') }} }
+                                {% else %}
+                                    ∅
+                                {% endif %}
+                            </span>
+                        </div>
+
+                        {% elif step.phase == 'fill_cell' %}
+                        {% if step_counter.append(step_counter.pop() + 1) %}{% endif %}
+                        <div class="step-item {{ 'step-fill-found' if step.cell_value else 'step-fill' }}">
+                            <span class="step-num">Step {{ step_counter[0] }}:</span>
+                            Cell [{{ step.i }}][{{ step.j }}] — Substring length {{ step.length }}<br>
+                            Result: <span class="step-nt">
+                                {% if step.cell_value %}
+                                    { {{ step.cell_value | sort | join(', ') }} }
+                                {% else %}
+                                    ∅ (empty)
+                                {% endif %}
+                            </span>
+                        </div>
+
+                        {% elif step.phase == 'result' %}
+                        <div class="step-item step-result">
+                            {{ step.description }}
+                        </div>
+
+                        {% elif step.phase == 'empty_string' %}
+                        <div class="step-item step-result">
+                            {{ step.description }}
+                        </div>
+
+                        {% endif %}
+                    {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+
+            {% else %}
+            <!-- Placeholder when no results yet -->
+            <div class="placeholder-panel">
+                <div class="placeholder-icon">📊</div>
+                <h3>Results will appear here</h3>
+                <p class="hint">Enter a grammar and input string, then click "Check Membership"</p>
+                <div class="placeholder-features">
+                    <div class="feature-item">
+                        <span class="feature-dot"></span>
+                        CNF conversion steps
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-dot"></span>
+                        Visual CYK parsing table
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-dot"></span>
+                        Step-by-step algorithm trace
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </section>
+    </main>
+
+    <!-- ===== FOOTER ===== -->
+    <footer>
+        <p>Theory of Computation &mdash; CFG Membership Decision Problem &mdash; CYK Algorithm</p>
+    </footer>
+
+</body>
+</html>
